@@ -1,3 +1,36 @@
+Certainly, if you want to link the query hash from `sys.dm_exec_query_stats` to `sys.query_store_query`, you can use the `query_hash` column from both tables to establish the relationship.
+
+Here's the modified SQL query:
+
+```sql
+SELECT
+    qs_cpu.total_worker_time / 1000 AS total_cpu_time_ms,
+    qs_cpu.query_hash,
+    qs_cpu.execution_count,
+    q.[text],
+    p.query_plan,
+    q.dbid,
+    q.objectid,
+    q.encrypted AS text_encrypted
+FROM
+    (SELECT TOP 500 
+        qs.plan_handle,
+        qs.total_worker_time,
+        qs.query_hash,
+        qs.execution_count
+     FROM sys.dm_exec_query_stats qs 
+     ORDER BY qs.total_worker_time DESC) AS qs_cpu
+JOIN sys.dm_exec_sql_text(qs_cpu.plan_handle) AS q ON qs_cpu.plan_handle = q.plan_handle
+JOIN sys.dm_exec_query_plan(qs_cpu.plan_handle) p ON qs_cpu.plan_handle = p.plan_handle
+JOIN sys.query_store_query qsq ON qs_cpu.query_hash = qsq.query_hash
+WHERE p.query_plan.exist('declare namespace 
+        qplan = "http://schemas.microsoft.com/sqlserver/2004/07/showplan";
+        //qplan:MissingIndexes') = 1
+```
+
+In this modified query, I've added a join with `sys.query_store_query` using the `query_hash` column from `sys.dm_exec_query_stats` (`qs_cpu`) and `sys.query_store_query` (`qsq`). This should link the two tables based on the query hash, providing additional information from the Query Store.
+
+
 SELECT 
   qs.query_id,
   migs.avg_total_user_cost,
