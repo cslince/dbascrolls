@@ -1,3 +1,38 @@
+I apologize for the oversight. It seems I made a mistake in my previous response. To link `sys.dm_exec_query_stats` with `sys.query_store_query`, you'll need to use a correlated subquery to retrieve the `query_hash`.
+
+Here's the corrected query:
+
+```sql
+SELECT
+    qs_cpu.total_worker_time / 1000 AS total_cpu_time_ms,
+    q.[text],
+    p.query_plan,
+    qs_cpu.execution_count,
+    q.dbid,
+    q.objectid,
+    q.encrypted AS text_encrypted,
+    qsq.query_id
+FROM
+    (
+        SELECT TOP 500 
+            qs.plan_handle,
+            qs.total_worker_time,
+            qs.execution_count,
+            qs.query_hash
+        FROM sys.dm_exec_query_stats qs 
+        ORDER BY qs.total_worker_time DESC
+    ) AS qs_cpu
+CROSS APPLY sys.dm_exec_sql_text(qs_cpu.plan_handle) AS q
+CROSS APPLY sys.dm_exec_query_plan(qs_cpu.plan_handle) p
+JOIN sys.query_store_query qsq ON qs_cpu.query_hash = qsq.query_hash
+WHERE p.query_plan.exist('declare namespace 
+    qplan = "http://schemas.microsoft.com/sqlserver/2004/07/showplan";
+    //qplan:MissingIndexes') = 1
+```
+
+This query should correctly link the `query_hash` from `sys.dm_exec_query_stats` to `sys.query_store_query` using a correlated subquery. Please give this a try and let me know if you encounter any further issues.
+
+
 I apologize for the confusion. It seems I made an error in the query. Let me correct it. If you want to link `sys.dm_exec_query_stats` with `sys.query_store_query` using the `query_hash`, you would need to adjust the query like this:
 
 ```sql
